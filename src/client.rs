@@ -142,8 +142,7 @@ pub fn handle_request<C: ClientCore>(
         } => {
             let preedit_string =
                 xim_ctext::compound_text_to_utf8(&preedit_string).expect("Encoding error");
-            handler.handle_reset_ic(client, input_method_id, input_context_id, &preedit_string);
-            Ok(())
+            handler.handle_reset_ic(client, input_method_id, input_context_id, &preedit_string)
         }
         Request::Error { code, detail, .. } => Err(ClientError::XimError(code, detail)),
         Request::ForwardEvent {
@@ -175,7 +174,7 @@ pub fn handle_request<C: ClientCore>(
             input_context_id,
             data,
         } => match data {
-            CommitData::Keysym { keysym: _, .. } => {
+            CommitData::Keysym { .. } => {
                 log::warn!("Keysym commit is not supported");
                 Ok(())
             }
@@ -292,8 +291,8 @@ pub trait ClientCore {
 pub trait Client {
     type XEvent;
 
-    fn build_ic_attributes(&self) -> AttributeBuilder;
-    fn build_im_attributes(&self) -> AttributeBuilder;
+    fn build_ic_attributes(&self) -> AttributeBuilder<'_>;
+    fn build_im_attributes(&self) -> AttributeBuilder<'_>;
 
     fn disconnect(&mut self) -> Result<(), ClientError>;
     fn open(&mut self, locale: &str) -> Result<(), ClientError>;
@@ -347,11 +346,11 @@ where
 {
     type XEvent = C::XEvent;
 
-    fn build_ic_attributes(&self) -> AttributeBuilder {
+    fn build_ic_attributes(&self) -> AttributeBuilder<'_> {
         AttributeBuilder::new(self.ic_attributes())
     }
 
-    fn build_im_attributes(&self) -> AttributeBuilder {
+    fn build_im_attributes(&self) -> AttributeBuilder<'_> {
         AttributeBuilder::new(self.im_attributes())
     }
 
@@ -603,5 +602,114 @@ pub trait ClientHandler<C: Client> {
         preedit_text: &str,
     ) -> Result<(), ClientError> {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod reset_result_tests {
+    use super::*;
+
+    struct TestClient {
+        ic: AHashMap<AttributeName, u16>,
+        im: AHashMap<AttributeName, u16>,
+    }
+
+    impl ClientCore for TestClient {
+        type XEvent = xim_parser::XEvent;
+
+        fn set_attrs(&mut self, _: Vec<Attr>, _: Vec<Attr>) {}
+
+        fn ic_attributes(&self) -> &AHashMap<AttributeName, u16> {
+            &self.ic
+        }
+        fn im_attributes(&self) -> &AHashMap<AttributeName, u16> {
+            &self.im
+        }
+
+        fn serialize_event(&self, xev: &Self::XEvent) -> xim_parser::XEvent {
+            xev.clone()
+        }
+
+        fn deserialize_event(&self, xev: &xim_parser::XEvent) -> Self::XEvent {
+            xev.clone()
+        }
+
+        fn send_req(&mut self, _: Request) -> Result<(), ClientError> {
+            Ok(())
+        }
+    }
+
+    struct RecordingHandler {
+        succeeds: bool,
+        calls: Vec<(u16, u16, String)>,
+    }
+
+    impl ClientHandler<TestClient> for RecordingHandler {
+        fn handle_reset_ic(
+            &mut self,
+            _: &mut TestClient,
+            input_method_id: u16,
+            input_context_id: u16,
+            preedit_text: &str,
+        ) -> Result<(), ClientError> {
+            self.calls.push((
+                input_method_id,
+                input_context_id,
+                String::from(preedit_text),
+            ));
+            if self.succeeds {
+                Ok(())
+            } else {
+                Err(ClientError::InvalidReply)
+            }
+        }
+    }
+
+    #[test]
+    fn reset_callback_error_is_returned() {
+        let mut client = TestClient {
+            ic: Default::default(),
+            im: Default::default(),
+        };
+        let mut handler = RecordingHandler {
+            succeeds: false,
+            calls: Vec::new(),
+        };
+        let result = handle_request(
+            &mut client,
+            &mut handler,
+            Request::ResetIcReply {
+                input_method_id: 1,
+                input_context_id: 2,
+                preedit_string: Vec::new(),
+            },
+        );
+
+        assert!(matches!(result, Err(ClientError::InvalidReply)));
+        assert_eq!(handler.calls, vec![(1, 2, String::new())]);
+    }
+
+    #[test]
+    fn reset_callback_success_is_returned_and_arguments_are_forwarded() {
+        let mut client = TestClient {
+            ic: Default::default(),
+            im: Default::default(),
+        };
+        let mut handler = RecordingHandler {
+            succeeds: true,
+            calls: Vec::new(),
+        };
+        let result = handle_request(
+            &mut client,
+            &mut handler,
+            Request::ResetIcReply {
+                input_method_id: 7,
+                input_context_id: 8,
+                preedit_string: b"preedit".to_vec(),
+            },
+        );
+
+        assert!(result.is_ok());
+        assert_eq!(handler.calls, vec![(7, 8, String::from("preedit"))]);
     }
 }

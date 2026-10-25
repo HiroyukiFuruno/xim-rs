@@ -1,8 +1,8 @@
 use x11rb::connection::Connection;
-use xim::{
+use xim_parser::InputStyle;
+use zed_xim::{
     x11rb::X11rbServer, Server, ServerError, ServerHandler, UserInputContext, XimConnections,
 };
-use xim_parser::InputStyle;
 
 #[derive(Default)]
 struct Handler {}
@@ -109,7 +109,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     pretty_env_logger::init_custom_env("XIM_RS_LOG");
 
     let (conn, screen_num) = x11rb::rust_connection::RustConnection::connect(None)?;
-    let mut server = X11rbServer::init(&conn, screen_num, "test_server", xim::ALL_LOCALES)?;
+    let mut server = X11rbServer::init(&conn, screen_num, "test_server", zed_xim::ALL_LOCALES)?;
     let mut connections = XimConnections::new();
     let mut handler = Handler::default();
 

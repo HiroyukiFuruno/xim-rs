@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 
-use xim::{AHashMap, Client, ClientError, ClientHandler};
 use xim_parser::{AttributeName, InputStyle, Point};
+use zed_xim::{AHashMap, Client, ClientError, ClientHandler};
 
 #[derive(Default)]
 pub struct ExampleHandler {
@@ -12,13 +12,22 @@ pub struct ExampleHandler {
 }
 
 #[cfg(all(feature = "x11rb-client", not(feature = "xlib-client")))]
-trait ClientAlias = Client<XEvent = x11rb::protocol::xproto::KeyPressEvent>;
+trait ClientAlias: Client<XEvent = x11rb::protocol::xproto::KeyPressEvent> {}
 
 #[cfg(all(feature = "xlib-client", not(feature = "x11rb-client")))]
-trait ClientAlias = Client<XEvent = x11_dl::xlib::XKeyPressedEvent>;
+trait ClientAlias: Client<XEvent = x11_dl::xlib::XKeyPressedEvent> {}
 
 #[cfg(all(feature = "xlib-client", feature = "x11rb-client"))]
-trait ClientAlias = Client;
+trait ClientAlias: Client {}
+
+#[cfg(all(feature = "x11rb-client", not(feature = "xlib-client")))]
+impl<T> ClientAlias for T where T: Client<XEvent = x11rb::protocol::xproto::KeyPressEvent> {}
+
+#[cfg(all(feature = "xlib-client", not(feature = "x11rb-client")))]
+impl<T> ClientAlias for T where T: Client<XEvent = x11_dl::xlib::XKeyPressedEvent> {}
+
+#[cfg(all(feature = "xlib-client", feature = "x11rb-client"))]
+impl<T> ClientAlias for T where T: Client {}
 
 impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
     fn handle_connect(&mut self, client: &mut C) -> Result<(), ClientError> {
@@ -71,7 +80,7 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
         _client: &mut C,
         _input_method_id: u16,
         _input_context_id: u16,
-        flag: xim::ForwardEventFlag,
+        flag: zed_xim::ForwardEventFlag,
         xev: C::XEvent,
     ) -> Result<(), ClientError> {
         #[cfg(all(feature = "x11rb-client", not(feature = "xlib-client")))]
@@ -81,7 +90,10 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
 
         // When both feature are enabled, emit flag only.
         #[cfg(all(feature = "xlib-client", feature = "x11rb-client"))]
-        log::info!("Handle forward event {:?}", flag);
+        {
+            let _ = &xev;
+            log::info!("Handle forward event {:?}", flag);
+        }
 
         #[cfg(not(all(feature = "xlib-client", feature = "x11rb-client")))]
         log::info!("Handle forward event {:?}, {}", flag, keycode);
@@ -163,9 +175,9 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
         caret: i32,
         _chg_first: i32,
         _chg_len: i32,
-        _status: xim::PreeditDrawStatus,
+        _status: zed_xim::PreeditDrawStatus,
         preedit_string: &str,
-        feedbacks: Vec<xim::Feedback>,
+        feedbacks: Vec<zed_xim::Feedback>,
     ) -> Result<(), ClientError> {
         let mut caret_string = String::new();
 

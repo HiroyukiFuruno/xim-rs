@@ -124,7 +124,7 @@ pub fn compound_text_to_utf8(bytes: &[u8]) -> Result<String, DecodeError> {
 
     let mut result = String::new();
 
-    for chunk in split {
+    for (chunk_index, chunk) in split.iter().enumerate() {
         let mut iter = chunk.iter();
         match (iter.next(), iter.next()) {
             // UTF-8
@@ -137,6 +137,14 @@ pub fn compound_text_to_utf8(bytes: &[u8]) -> Result<String, DecodeError> {
             }
             // UTF-8 End
             (Some(0x25), Some(0x40)) => {}
+            // ISO-2022 return to ASCII (ESC ( B) or JIS X 0201 Roman (ESC ( J).
+            // Mixed CJK+ASCII commits (e.g. Sogou date phrases) insert these between
+            // charset segments; without handling them, "(B" / "(J" leaks into UTF-8.
+            (Some(0x28), Some(0x42)) | (Some(0x28), Some(0x4a)) if chunk_index > 0 => {
+                let left = iter.as_slice();
+                let out = encoding_rs::mem::decode_latin1(left);
+                result.push_str(&out);
+            }
             // 94N
             (Some(0x24), Some(0x28)) => match iter.next() {
                 // JP
@@ -263,6 +271,21 @@ pub fn compound_text_to_utf8(bytes: &[u8]) -> Result<String, DecodeError> {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn preserves_unescaped_ascii_charset_prefixes() -> Result<(), crate::DecodeError> {
+        for input in ["(B)", "(J)", "(B", "(J"] {
+            assert_eq!(crate::compound_text_to_utf8(input.as_bytes())?, input);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn decodes_escaped_ascii_charset_designators() -> Result<(), crate::DecodeError> {
+        assert_eq!(crate::compound_text_to_utf8(b"\x1b(B07")?, "07");
+        assert_eq!(crate::compound_text_to_utf8(b"\x1b(JABC")?, "ABC");
+        Ok(())
+    }
+
+    #[test]
     fn korean() {
         const UTF8: &str = "가나다";
         const COMP: &[u8] = &[
@@ -284,6 +307,22 @@ mod tests {
         const UTF8: &str = "知ってるつもり";
         const COMP: &[u8] = &[
             27, 36, 40, 66, 67, 78, 36, 67, 36, 70, 36, 107, 36, 68, 36, 98, 36, 106, 27, 40, 66,
+        ];
+        assert_eq!(crate::compound_text_to_utf8(COMP).unwrap(), UTF8);
+    }
+
+    #[test]
+    fn gb2312_cn_mixed_ascii_digits() {
+        // "2026年07月16日" as COMPOUND_TEXT with ESC ( B between GB2312 and ASCII.
+        const UTF8: &str = "2026年07月16日";
+        #[rustfmt::skip]
+        const COMP: &[u8] = &[
+            b'2', b'0', b'2', b'6',
+            0x1b, 0x24, 0x28, 0x41, 0x44, 0x6a, // 年
+            0x1b, 0x28, 0x42, b'0', b'7',
+            0x1b, 0x24, 0x28, 0x41, 0x54, 0x42, // 月
+            0x1b, 0x28, 0x42, b'1', b'6',
+            0x1b, 0x24, 0x28, 0x41, 0x48, 0x55, // 日
         ];
         assert_eq!(crate::compound_text_to_utf8(COMP).unwrap(), UTF8);
     }
