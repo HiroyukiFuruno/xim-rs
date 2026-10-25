@@ -1,9 +1,8 @@
-#![feature(trait_alias)]
-
 use std::{mem::MaybeUninit, ptr};
 use x11_dl::xlib;
 use xim::{xlib::XlibClient, Client};
 use xim_parser::ForwardEventFlag;
+use zed_xim as xim;
 
 use self::handler::ExampleHandler;
 
@@ -47,21 +46,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             (xlib.XNextEvent)(display, e.as_mut_ptr());
             let e = e.assume_init();
 
-            log::trace!("Get event: {:?}", e);
+            log::trace!("Get event: {e:?}");
 
             if client.filter_event(&e, &mut handler)? {
                 continue;
             } else {
                 match e.get_type() {
-                    xlib::KeyPress | xlib::KeyRelease => {
-                        if handler.connected {
-                            client.forward_event(
-                                handler.im_id,
-                                handler.ic_id,
-                                ForwardEventFlag::empty(),
-                                &e.key,
-                            )?;
-                        }
+                    xlib::KeyPress | xlib::KeyRelease if handler.connected => {
+                        client.forward_event(
+                            handler.im_id,
+                            handler.ic_id,
+                            ForwardEventFlag::empty(),
+                            &e.key,
+                        )?;
                     }
                     _ => {}
                 }

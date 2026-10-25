@@ -166,6 +166,12 @@ pub fn compound_text_to_utf8(bytes: &[u8]) -> Result<String, DecodeError> {
                 // Invalid encode
                 _ => return Err(DecodeError::InvalidEncoding),
             },
+            // 文字集合の復帰指定後も同じchunkのASCII本文を保持する。
+            (Some(0x28), Some(0x42)) | (Some(0x28), Some(0x4a)) => {
+                let left = iter.as_slice();
+                let out = encoding_rs::mem::decode_latin1(left);
+                result.push_str(&out);
+            }
             // ISO-8859-1
             (Some(0x2d), Some(0x41)) => {
                 let left = iter.as_slice();
@@ -286,6 +292,21 @@ mod tests {
             27, 36, 40, 66, 67, 78, 36, 67, 36, 70, 36, 107, 36, 68, 36, 98, 36, 106, 27, 40, 66,
         ];
         assert_eq!(crate::compound_text_to_utf8(COMP).unwrap(), UTF8);
+    }
+
+    #[test]
+    fn iso_2022_jp_mixed_ascii() {
+        const UTF8: &str = "東京2026";
+        const COMP: &[u8] = &[
+            27, 36, 40, 66, 69, 108, 53, 126, 27, 40, 66, b'2', b'0', b'2', b'6',
+        ];
+        assert_eq!(crate::compound_text_to_utf8(COMP).unwrap(), UTF8);
+    }
+
+    #[test]
+    fn jis_roman_ascii_payload() {
+        const COMP: &[u8] = &[27, 40, 74, b'A', b'B'];
+        assert_eq!(crate::compound_text_to_utf8(COMP).unwrap(), "AB");
     }
 
     #[test]

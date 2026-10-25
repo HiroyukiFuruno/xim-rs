@@ -142,7 +142,7 @@ pub fn handle_request<C: ClientCore>(
         } => {
             let preedit_string =
                 xim_ctext::compound_text_to_utf8(&preedit_string).expect("Encoding error");
-            handler.handle_reset_ic(client, input_method_id, input_context_id, &preedit_string);
+            handler.handle_reset_ic(client, input_method_id, input_context_id, &preedit_string)?;
             Ok(())
         }
         Request::Error { code, detail, .. } => Err(ClientError::XimError(code, detail)),
@@ -175,7 +175,7 @@ pub fn handle_request<C: ClientCore>(
             input_context_id,
             data,
         } => match data {
-            CommitData::Keysym { keysym: _, .. } => {
+            CommitData::Keysym { .. } => {
                 log::warn!("Keysym commit is not supported");
                 Ok(())
             }
@@ -292,8 +292,8 @@ pub trait ClientCore {
 pub trait Client {
     type XEvent;
 
-    fn build_ic_attributes(&self) -> AttributeBuilder;
-    fn build_im_attributes(&self) -> AttributeBuilder;
+    fn build_ic_attributes(&self) -> AttributeBuilder<'_>;
+    fn build_im_attributes(&self) -> AttributeBuilder<'_>;
 
     fn disconnect(&mut self) -> Result<(), ClientError>;
     fn open(&mut self, locale: &str) -> Result<(), ClientError>;
@@ -347,11 +347,11 @@ where
 {
     type XEvent = C::XEvent;
 
-    fn build_ic_attributes(&self) -> AttributeBuilder {
+    fn build_ic_attributes(&self) -> AttributeBuilder<'_> {
         AttributeBuilder::new(self.ic_attributes())
     }
 
-    fn build_im_attributes(&self) -> AttributeBuilder {
+    fn build_im_attributes(&self) -> AttributeBuilder<'_> {
         AttributeBuilder::new(self.im_attributes())
     }
 

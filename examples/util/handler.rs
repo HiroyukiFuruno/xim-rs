@@ -2,6 +2,7 @@ use std::convert::TryInto;
 
 use xim::{AHashMap, Client, ClientError, ClientHandler};
 use xim_parser::{AttributeName, InputStyle, Point};
+use zed_xim as xim;
 
 #[derive(Default)]
 pub struct ExampleHandler {
@@ -12,13 +13,22 @@ pub struct ExampleHandler {
 }
 
 #[cfg(all(feature = "x11rb-client", not(feature = "xlib-client")))]
-trait ClientAlias = Client<XEvent = x11rb::protocol::xproto::KeyPressEvent>;
+trait ClientAlias: Client<XEvent = x11rb::protocol::xproto::KeyPressEvent> {}
+
+#[cfg(all(feature = "x11rb-client", not(feature = "xlib-client")))]
+impl<T: Client<XEvent = x11rb::protocol::xproto::KeyPressEvent>> ClientAlias for T {}
 
 #[cfg(all(feature = "xlib-client", not(feature = "x11rb-client")))]
-trait ClientAlias = Client<XEvent = x11_dl::xlib::XKeyPressedEvent>;
+trait ClientAlias: Client<XEvent = x11_dl::xlib::XKeyPressedEvent> {}
+
+#[cfg(all(feature = "xlib-client", not(feature = "x11rb-client")))]
+impl<T: Client<XEvent = x11_dl::xlib::XKeyPressedEvent>> ClientAlias for T {}
 
 #[cfg(all(feature = "xlib-client", feature = "x11rb-client"))]
-trait ClientAlias = Client;
+trait ClientAlias: Client {}
+
+#[cfg(all(feature = "xlib-client", feature = "x11rb-client"))]
+impl<T: Client> ClientAlias for T {}
 
 impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
     fn handle_connect(&mut self, client: &mut C) -> Result<(), ClientError> {
@@ -62,7 +72,7 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
     ) -> Result<(), ClientError> {
         self.connected = true;
         self.ic_id = input_context_id;
-        log::info!("IC created {}, {}", input_method_id, input_context_id);
+        log::info!("IC created {input_method_id}, {input_context_id}");
         Ok(())
     }
 
@@ -81,7 +91,10 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
 
         // When both feature are enabled, emit flag only.
         #[cfg(all(feature = "xlib-client", feature = "x11rb-client"))]
-        log::info!("Handle forward event {:?}", flag);
+        let _ = &xev;
+
+        #[cfg(all(feature = "xlib-client", feature = "x11rb-client"))]
+        log::info!("Handle forward event {flag:?}");
 
         #[cfg(not(all(feature = "xlib-client", feature = "x11rb-client")))]
         log::info!("Handle forward event {:?}, {}", flag, keycode);
@@ -95,7 +108,7 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
         _input_context_id: u16,
         text: &str,
     ) -> Result<(), ClientError> {
-        log::info!("Commited {}", text);
+        log::info!("Commited {text}");
         Ok(())
     }
 
@@ -126,11 +139,7 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
         synchronous_event_mask: u32,
     ) -> Result<(), ClientError> {
         log::info!(
-            "Set event mask {}, {}, {}, {}",
-            input_method_id,
-            input_context_id,
-            forward_event_mask,
-            synchronous_event_mask
+            "Set event mask {input_method_id}, {input_context_id}, {forward_event_mask}, {synchronous_event_mask}"
         );
         Ok(())
     }
@@ -141,7 +150,7 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
         input_method_id: u16,
         input_context_id: u16,
     ) -> Result<(), ClientError> {
-        log::info!("Preedit start {}, {}", input_method_id, input_context_id);
+        log::info!("Preedit start {input_method_id}, {input_context_id}");
         Ok(())
     }
 
@@ -151,7 +160,7 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
         input_method_id: u16,
         input_context_id: u16,
     ) -> Result<(), ClientError> {
-        log::info!("Preedit done {}, {}", input_method_id, input_context_id);
+        log::info!("Preedit done {input_method_id}, {input_context_id}");
         Ok(())
     }
 
@@ -175,7 +184,7 @@ impl<C: ClientAlias> ClientHandler<C> for ExampleHandler {
         caret_string.push('|');
         caret_string.extend(chars);
 
-        log::info!("Preedit {}({:?})", caret_string, feedbacks);
+        log::info!("Preedit {caret_string}({feedbacks:?})");
 
         Ok(())
     }

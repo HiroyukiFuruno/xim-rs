@@ -1,9 +1,8 @@
-#![feature(trait_alias)]
-
 use x11rb::connection::Connection;
 use x11rb::protocol::{xproto::*, Event};
 use xim::{x11rb::X11rbClient, Client};
 use xim_parser::ForwardEventFlag;
+use zed_xim as xim;
 
 use self::handler::ExampleHandler;
 
@@ -50,20 +49,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if client.filter_event(&e, &mut handler)? {
             continue;
         } else if let Event::Error(err) = e {
-            log::error!("X11Error: {:?}", err);
+            log::error!("X11Error: {err:?}");
             continue;
         } else {
             match e {
-                Event::KeyPress(e) | Event::KeyRelease(e) => {
-                    if handler.connected {
-                        log::trace!("Send: {:?}", e);
-                        client.forward_event(
-                            handler.im_id,
-                            handler.ic_id,
-                            ForwardEventFlag::empty(),
-                            &e,
-                        )?;
-                    }
+                Event::KeyPress(e) | Event::KeyRelease(e) if handler.connected => {
+                    log::trace!("Send: {e:?}");
+                    client.forward_event(
+                        handler.im_id,
+                        handler.ic_id,
+                        ForwardEventFlag::empty(),
+                        &e,
+                    )?;
                 }
                 _ => {}
             }

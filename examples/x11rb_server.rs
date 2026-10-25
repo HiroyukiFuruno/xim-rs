@@ -3,6 +3,7 @@ use xim::{
     x11rb::X11rbServer, Server, ServerError, ServerHandler, UserInputContext, XimConnections,
 };
 use xim_parser::InputStyle;
+use zed_xim as xim;
 
 #[derive(Default)]
 struct Handler {}
