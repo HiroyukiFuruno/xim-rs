@@ -1,9 +1,7 @@
-#![feature(trait_alias)]
-
 use x11rb::connection::Connection;
 use x11rb::protocol::{xproto::*, Event};
-use xim::{x11rb::X11rbClient, Client};
 use xim_parser::ForwardEventFlag;
+use zed_xim::{x11rb::X11rbClient, Client};
 
 use self::handler::ExampleHandler;
 

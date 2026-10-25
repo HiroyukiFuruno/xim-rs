@@ -1,9 +1,7 @@
-#![feature(trait_alias)]
-
 use std::{mem::MaybeUninit, ptr};
 use x11_dl::xlib;
-use xim::{xlib::XlibClient, Client};
 use xim_parser::ForwardEventFlag;
+use zed_xim::{xlib::XlibClient, Client};
 
 use self::handler::ExampleHandler;
 
