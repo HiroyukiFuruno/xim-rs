@@ -7,7 +7,7 @@ minimum Rust version from 1.64 to 1.88 (the currently resolved
 The original upstream `xim` 0.5 cannot simply replace this fork: its client API
 no longer provides `reset_ic`.
 
-Release-branch pushes automatically verify the distributable package without
+Release-branch pushes automatically verify the distributable package with all features, without
 exposing the registry secret or attempting publication. Manual dry runs also
 check the supplied exact version.
 
@@ -17,7 +17,8 @@ check the supplied exact version.
    including the Rust 1.88 build, to pass.
 2. A canonical crate owner runs **Publish zed-xim** on the merged `main` commit
    with the exact manifest version and `publish=false`. This checks the actual
-   distributable package against registry dependencies.
+   distributable package against registry dependencies, including all optional
+   client/server backends.
 3. The owner reruns that same commit with `publish=true`. The workflow permits
    actual publication only in `zed-industries/xim-rs` on `main` when dispatched
    by the recorded individual owners `mikayla-maki` or `MrSubidubi`, uses the

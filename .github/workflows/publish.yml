@@ -52,12 +52,12 @@ jobs:
       - name: Resolve and verify the distributable package
         run: |
           cargo generate-lockfile
-          cargo publish --locked --dry-run --package zed-xim
+          cargo publish --locked --dry-run --all-features --package zed-xim
       - name: Publish verified source
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --locked --package zed-xim
+        run: cargo publish --locked --all-features --package zed-xim
       - name: Verify registry identity and checksum
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         env:
