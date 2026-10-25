@@ -1,6 +1,8 @@
 name: Publish zed-xim
 
 on:
+  push:
+    branches: ["release/**"]
   workflow_dispatch:
     inputs:
       version:
@@ -29,7 +31,7 @@ jobs:
       - name: Verify package identity and publication authority
         env:
           EXPECTED_VERSION: ${{ inputs.version }}
-          PUBLISH: ${{ inputs.publish }}
+          PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         run: |
           python3 - <<'PYTHON'
           import os
@@ -37,7 +39,11 @@ jobs:
           from pathlib import Path
           package = tomllib.loads(Path("Cargo.toml").read_text())["package"]
           assert package["name"] == "zed-xim", package["name"]
-          assert package["version"] == os.environ["EXPECTED_VERSION"], package["version"]
+          expected = os.environ["EXPECTED_VERSION"]
+          if expected:
+              assert package["version"] == expected, package["version"]
+          else:
+              assert os.environ["PUBLISH"] != "true"
           if os.environ["PUBLISH"] == "true":
               assert os.environ["GITHUB_REPOSITORY"] == "zed-industries/xim-rs"
               assert os.environ["GITHUB_REF"] == "refs/heads/main"
@@ -48,12 +54,12 @@ jobs:
           cargo generate-lockfile
           cargo publish --locked --dry-run --package zed-xim
       - name: Publish verified source
-        if: ${{ inputs.publish }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish --locked --package zed-xim
       - name: Verify registry identity and checksum
-        if: ${{ inputs.publish }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
         env:
           EXPECTED_VERSION: ${{ inputs.version }}
         run: |

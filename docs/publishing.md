@@ -7,6 +7,10 @@ minimum Rust version from 1.64 to 1.88 (the currently resolved
 The original upstream `xim` 0.5 cannot simply replace this fork: its client API
 no longer provides `reset_ic`.
 
+Release-branch pushes automatically verify the distributable package without
+exposing the registry secret or attempting publication. Manual dry runs also
+check the supplied exact version.
+
 ## Release order
 
 1. Review and merge the dependency/regression PR; require the Check workflow,
