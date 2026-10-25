@@ -25,6 +25,10 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.toml') }}
           ${{ runner.os }}-cargo-target
+    - name: Install X11 development library
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes --no-install-recommends libxcb1-dev
     - name: Build
       run: cargo build --verbose --all --all-features
     - name: Run tests
